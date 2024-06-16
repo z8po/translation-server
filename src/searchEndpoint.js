@@ -52,11 +52,11 @@ var SearchEndpoint = module.exports = {
 			return;
 		}
 		
-		await this.handleIdentifier(ctx, identifiers[0]);
+		await this.handleIdentifier(ctx, { identifier:identifiers[0], data });
 	},
 	
 	
-	handleIdentifier: async function (ctx, identifier) {
+	handleIdentifier: async function (ctx, {identifier, data}) {
 		// Identifier
 		try {
 			var translate = new Translate.Search();
@@ -87,11 +87,16 @@ var SearchEndpoint = module.exports = {
 		
 		// Translation can return multiple items (e.g., a parent item and notes pointing to it),
 		// so we have to return an array with keyed items
-		var newItems = [];
-		items.forEach(item => {
-			newItems.push(...Zotero.Utilities.Item.itemToAPIJSON(item));
-		});
-		
+		const newItems = items.map((item) => {
+			let [newItem] = Zotero.Utilities.Item.itemToAPIJSON(item)
+			// zotero utilities return an EAN instead of an ISBN, store the dash separated one, could be reused to find publisher code and checksum last digit
+			newItem.ISBN && (newItem.EAN = newItem.ISBN)
+			newItem.ISBN &&= data
+			// CSL hasnt lot of creator type or item type but let store it for other purpose maybe it will be an easiest approach afterwards for other ontology convertion
+			// zotero has existing mapping in modules/zotero-schema
+			newItem.csl = Zotero.Utilities.Item.itemToCSLJSON(item)
+			return newItem
+		  })
 		ctx.response.body = newItems;
 	}
 };
